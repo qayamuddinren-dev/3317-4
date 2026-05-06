@@ -1,0 +1,227 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>个人风水计算器</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0;}
+body{
+  font-family:"PingFang SC","Helvetica Neue",sans-serif;
+  background:#f5f7fa;
+  padding:12px;
+  color:#333;
+}
+.card{
+  background:#fff;
+  border-radius:16px;
+  padding:16px;
+  margin-bottom:12px;
+  box-shadow:0 2px 8px rgba(0,0,0,0.08);
+}
+h3{
+  text-align:center;
+  margin-bottom:12px;
+  font-size:18px;
+}
+label{
+  display:block;
+  margin:8px 0 4px;
+  font-size:14px;
+}
+input,select{
+  width:100%;
+  height:44px;
+  border:1px solid #ddd;
+  border-radius:10px;
+  padding:0 10px;
+  font-size:16px;
+}
+button{
+  width:100%;
+  height:48px;
+  background:#2563eb;
+  color:#fff;
+  border:none;
+  border-radius:12px;
+  font-size:17px;
+  margin-top:10px;
+}
+.result{
+  margin-top:12px;
+  font-size:15px;
+  line-height:1.6;
+}
+.good{color:#059669;font-weight:600;}
+.bad{color:#dc2626;font-weight:600;}
+.key{color:#9333ea;font-weight:600;}
+</style>
+</head>
+<body>
+
+<div class="card">
+  <h3>📜 个人风水测算</h3>
+  <label>姓名</label>
+  <input id="name" placeholder="请输入姓名">
+
+  <label>性别</label>
+  <select id="gender">
+    <option value="男">男</option>
+    <option value="女">女</option>
+  </select>
+
+  <label>出生日期</label>
+  <input id="birthDate" type="date">
+
+  <label>出生时间（24小时制）</label>
+  <input id="birthTime" type="time">
+
+  <label>当前所在地</label>
+  <input id="location" placeholder="如：香港、北京、上海">
+
+  <button onclick="calc()">开始测算</button>
+</div>
+
+<div class="card result" id="res"></div>
+
+<script>
+// 基础干支与方位数据
+const gan = ["甲","乙","丙","丁","戊","己","庚","辛","壬","癸"];
+const zhi = ["子","丑","寅","卯","辰","巳","午","未","申","酉","戌","亥"];
+const dirs = ["正北","东北","正东","东南","正南","西南","正西","西北"];
+const dirEn = ["N","NE","E","SE","S","SW","W","NW"];
+
+// 日财神方位（日干→方位）
+const dayCai = {
+  "甲":"东北","乙":"正东","丙":"东南","丁":"正南","戊":"东南",
+  "己":"正南","庚":"西南","辛":"正西","壬":"西北","癸":"正北"
+};
+
+// 时辰吉凶（简化版）
+const timeLuck = [
+  {zhi:"子",luck:"凶",tip:"忌大事、争吵"},
+  {zhi:"丑",luck:"凶",tip:"忌大事、熬夜"},
+  {zhi:"寅",luck:"吉",tip:"开市、出行、谈判"},
+  {zhi:"卯",luck:"凶",tip:"忌冲动、远行"},
+  {zhi:"辰",luck:"吉",tip:"祈福、嫁娶、签约"},
+  {zhi:"巳",luck:"吉",tip:"搬家、入宅、见贵"},
+  {zhi:"午",luck:"凶",tip:"防口舌、情绪波动"},
+  {zhi:"未",luck:"凶",tip:"忌诉讼、投资"},
+  {zhi:"申",luck:"吉",tip:"求财、合作、文书"},
+  {zhi:"酉",luck:"吉",tip:"祭祀、聚餐、社交"},
+  {zhi:"戌",luck:"凶",tip:"防小人、纠纷"},
+  {zhi:"亥",luck:"凶",tip:"忌熬夜、破财"}
+];
+
+// 简易日柱（只做演示，实际需万年历/算法）
+function getDayGZ(d){
+  // 简化：以2025-01-01为甲子（示例）
+  let base=new Date(2025,0,1);
+  let diff=Math.floor((d-base)/(1000*60*60*24));
+  let g=gan[(0+diff)%10];
+  let z=zhi[(0+diff)%12];
+  return g+z;
+}
+
+// 简易时柱
+function getTimeGZ(h,dayG){
+  let zIdx=Math.floor((h+1)/2)%12;
+  let z=zhi[zIdx];
+  // 五鼠遁（简化）
+  let ganMap={"甲":0,"乙":2,"丙":4,"丁":6,"戊":8,"己":0,"庚":2,"辛":4,"壬":6,"癸":8};
+  let g=gan[(ganMap[dayG]+zIdx)%10];
+  return g+z;
+}
+
+// 生肖
+function getShengXiao(y){
+  let idx=(y-4)%12;
+  return ["鼠","牛","虎","兔","龙","蛇","马","羊","猴","鸡","狗","猪"][idx];
+}
+
+// 五行（简易）
+function getFive(gz){
+  let wuxing={
+    "甲":"木","乙":"木","丙":"火","丁":"火","戊":"土","己":"土",
+    "庚":"金","辛":"金","壬":"水","癸":"水",
+    "子":"水","丑":"土","寅":"木","卯":"木","辰":"土","巳":"火",
+    "午":"火","未":"土","申":"金","酉":"金","戌":"土","亥":"水"
+  };
+  return wuxing[gz[0]] || "未知";
+}
+
+// 主计算
+function calc(){
+  let name=document.getElementById("name").value||"匿名";
+  let gender=document.getElementById("gender").value;
+  let birthDate=document.getElementById("birthDate").value;
+  let birthTime=document.getElementById("birthTime").value;
+  let loc=document.getElementById("location").value||"未知";
+  if(!birthDate||!birthTime){alert("请选择出生日期和时间");return;}
+
+  let birth=new Date(birthDate+"T"+birthTime);
+  let y=birth.getFullYear();
+  let m=birth.getMonth()+1;
+  let d=birth.getDate();
+  let h=birth.getHours();
+
+  // 今日（2026-05-06）
+  let today=new Date(2026,4,6);
+  let todayGZ=getDayGZ(today);
+  let todayG=todayGZ[0];
+  let todayZ=todayGZ[1];
+  let todayFive=getFive(todayG);
+
+  // 出生日柱/时柱（简化）
+  let birthGZ=getDayGZ(birth);
+  let birthG=birthGZ[0];
+  let birthZ=birthGZ[1];
+  let birthTimeGZ=getTimeGZ(h,birthG);
+  let birthFive=getFive(birthG);
+
+  let sx=getShengXiao(y);
+
+  // 今日财神/喜神/福神（简化）
+  let cai=dayCai[todayG];
+  let xi="西北";
+  let fu="西南";
+
+  // 时辰吉凶
+  let tzIdx=Math.floor((h+1)/2)%12;
+  let tz=zhi[tzIdx];
+  let tl=timeLuck.find(x=>x.zhi===tz);
+
+  // 生肖冲煞（今日辰日，冲狗）
+  let chong="狗";
+  let sha="东";
+
+  // 输出
+  let html=`<b>姓名：</b>${name}（${gender}）<br>`;
+  html+=`<b>出生：</b>${y}年${m}月${d}日 ${h}时 | 生肖：${sx}<br>`;
+  html+=`<b>所在地：</b>${loc}<br><br>`;
+
+  html+=`<b class="key">今日（2026-05-06）</b><br>`;
+  html+=`干支：${todayGZ}｜五行：${todayFive}<br>`;
+  html+=`财神位：<span class="good">${cai}</span>｜喜神：${xi}｜福神：${fu}<br>`;
+  html+=`冲煞：<span class="bad">冲${chong}，煞${sha}</span><br><br>`;
+
+  html+=`<b class="key">当前时辰（${tz}时）</b><br>`;
+  html+=`吉凶：${tl.luck==="吉"?'<span class="good">吉</span>':'<span class="bad">凶</span>'}<br>`;
+  html+=`提示：${tl.tip}<br><br>`;
+
+  html+=`<b class="key">你的八字（简化）</b><br>`;
+  html+=`日柱：${birthGZ}（${birthFive}）｜时柱：${birthTimeGZ}<br><br>`;
+
+  html+=`<b class="key">风水建议</b><br>`;
+  html+=`1. 求财/打牌：坐<span class="good">${cai}</span>（财神位）<br>`;
+  html+=`2. 办公/决策：坐正北（生门）<br>`;
+  html+=`3. 居家：西南放绿植（福神），西北保持整洁（喜神）<br>`;
+  html+=`4. 避忌：${chong}生肖今日低调，${sha}方忌动土<br>`;
+  html+=`5. 时辰：${tl.luck==="吉"?"宜签约、出行、求财":"宜休息、避口舌"}`;
+
+  document.getElementById("res").innerHTML=html;
+}
+</script>
+
+</body>
+</html>
